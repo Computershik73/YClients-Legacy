@@ -3,6 +3,7 @@
 #import <QuartzCore/QuartzCore.h>
 
 #import "YCApi.h"
+#import "YCClientPickerController.h"
 #import "YCIcons.h"
 #import "YCModel.h"
 #import "YCSheet.h"
@@ -32,6 +33,17 @@
     NSArray *_matches;
     UITableView *_results;
     NSInteger _searchGeneration;
+
+    UIButton *_pick;
+
+    /**
+     * Выбрали в списке — форму пора закрывать.
+     *
+     * Не сразу: закрыть её из обработчика выбора нельзя, там наверху
+     * ещё лежит сам список и снимать его будет некому. Поэтому пометка,
+     * а закрытие — когда форма снова окажется на экране.
+     */
+    BOOL _finishAfterPick;
 }
 
 - (id)initWithName:(NSString *)name
@@ -104,6 +116,33 @@
     [_scroll addSubview:_name];
     [_scroll addSubview:_email];
 
+    /**
+     * Кнопка «Выбрать из базы» — над полями и первым делом.
+     *
+     * Подсказки под полями появляются только после трёх набранных знаков,
+     * и о них надо догадаться: экран по-прежнему выглядит так, будто
+     * умеет одно — заводить нового. Кнопка говорит вслух то, что раньше
+     * приходилось угадывать, и стоит она выше полей нарочно — выбрать
+     * существующего чаще, чем завести нового.
+     */
+    _pick = [UIButton buttonWithType:UIButtonTypeCustom];
+
+    [_pick setTitle:@"  Выбрать из базы" forState:UIControlStateNormal];
+    [_pick setTitleColor:[YCTheme text] forState:UIControlStateNormal];
+    [_pick setImage:[YCIcons people:22 color:[YCTheme mutedText]]
+           forState:UIControlStateNormal];
+
+    _pick.titleLabel.font = [YCTheme rowFont];
+    _pick.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    _pick.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
+
+    [YCTheme decorateButton:_pick color:[YCTheme surface] radius:[YCTheme cornerRadius]];
+
+    [_pick addTarget:self action:@selector(pickFromBase)
+    forControlEvents:UIControlEventTouchUpInside];
+
+    [_scroll addSubview:_pick];
+
     _results = [[UITableView alloc] initWithFrame:CGRectZero
                                             style:UITableViewStylePlain];
 
@@ -140,6 +179,22 @@
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
 
+    /**
+     * Вернулись из списка с выбранным — уходим дальше, не задерживаясь.
+     *
+     * Выбрать человека из базы и есть ответ на вопрос этого экрана,
+     * и требовать после него ещё одного нажатия «Сохранить» значит
+     * спрашивать дважды об одном. Через подсказки под полями возврат
+     * происходит так же — иначе два способа выбрать одно и то же
+     * вели бы себя по-разному.
+     */
+    if (_finishAfterPick) {
+        _finishAfterPick = NO;
+
+        [self done];
+        return;
+    }
+
     [_phone becomeFirstResponder];
 }
 
@@ -155,7 +210,7 @@
     CGFloat row = [YCTheme isLegacy] ? 46.0 : 56.0;
     CGFloat step = row + 16.0;
 
-    CGFloat fields = 16 + step * 3;
+    CGFloat fields = 16 + step * 4;   // кнопка и три поля
 
     /**
      * Найденные занимают низ экрана, поля остаются наверху.
@@ -175,9 +230,10 @@
         _results.frame = CGRectMake(0, resultsTop, width, MAX(bottom - resultsTop, 0));
     }
 
-    _phone.frame = CGRectMake(inset, 16, inner, row);
-    _name.frame = CGRectMake(inset, 16 + step, inner, row);
-    _email.frame = CGRectMake(inset, 16 + step * 2, inner, row);
+    _pick.frame = CGRectMake(inset, 16, inner, row);
+    _phone.frame = CGRectMake(inset, 16 + step, inner, row);
+    _name.frame = CGRectMake(inset, 16 + step * 2, inner, row);
+    _email.frame = CGRectMake(inset, 16 + step * 3, inner, row);
 
     _scroll.contentSize = CGSizeMake(width, fields);
 
@@ -246,11 +302,58 @@
                 [NSCharacterSet whitespaceCharacterSet]] length] == 0;
 }
 
-- (void)textChanged {
+/** Заголовок нижней кнопки зависит от того, пусты ли поля. */
+- (void)updateButtonTitle {
     [_button setTitle:([self isEmpty] ? @"Продолжить без клиента" : @"Сохранить")
              forState:UIControlStateNormal];
+}
 
+- (void)textChanged {
+    [self updateButtonTitle];
     [self scheduleSearch];
+}
+
+/**
+ * Открывает список клиентов филиала.
+ *
+ * Набранное переносится в поиск: если человек уже начал вводить телефон
+ * и понял, что проще выбрать, — начинать заново незачем.
+ */
+- (void)pickFromBase {
+    [self.view endEditing:YES];
+
+    YCClientPickerController *picker =
+        [[YCClientPickerController alloc] initWithQuery:[self query]
+                                               onChoose:^(YCClient *client) {
+        NSString *shown = [client.fullName length] > 0 ? client.fullName : client.name;
+
+        self->_name.text = shown ?: @"";
+        self->_phone.text = client.phone ?: @"";
+        self->_email.text = client.email ?: @"";
+
+        /**
+         * Подсказки убираются: вопрос уже решён.
+         *
+         * Без этого список найденных остался бы висеть под полями,
+         * предлагая выбрать ещё раз того, кто только что выбран.
+         */
+        self->_matches = nil;
+
+        [self showResults];
+
+        /**
+         * Только заголовок кнопки, без нового поиска.
+         *
+         * textChanged позвал бы поиск по только что подставленному
+         * телефону, и список найденных всплыл бы снова — предлагая
+         * выбрать того, кто уже выбран.
+         */
+        [self updateButtonTitle];
+
+        self->_finishAfterPick = YES;
+    }];
+
+    [self.navigationController pushViewController:picker animated:YES];
 }
 
 #pragma mark Поиск по базе
