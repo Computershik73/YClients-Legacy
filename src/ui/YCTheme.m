@@ -260,12 +260,20 @@ static CGFloat YCSize(CGFloat compact, CGFloat regular) {
 }
 
 + (CGFloat)rulerWidth     { return YCSize(44.0, 52.0); }
-+ (CGFloat)headerHeight   { return YCSize(66.0, 78.0); }
+/**
+ * Шапка со списком сотрудников — уже, чем была.
+ *
+ * Было 66 точек: кружок-аватар в сорок и подпись под ним. Кружок ужат
+ * до тридцати двух, отступы сверху и снизу срезаны — сетке от этого
+ * достаётся десять точек, а узнаваемости шапки не убывает: имена
+ * читаются так же, а кружок здесь и так заглушка.
+ */
++ (CGFloat)headerHeight   { return YCSize(56.0, 66.0); }
 + (CGFloat)hourHeight     { return YCSize(56.0, 64.0); }
 + (CGFloat)minColumnWidth { return YCSize(104.0, 120.0); }
 + (CGFloat)rowHeight      { return YCSize(48.0, 54.0); }
 + (CGFloat)formRowHeight  { return YCSize(54.0, 62.0); }
-+ (CGFloat)avatarSize     { return YCSize(32.0, 38.0); }
++ (CGFloat)avatarSize     { return YCSize(30.0, 34.0); }
 
 + (NSTimeInterval)timeStep { return 15 * 60; }
 

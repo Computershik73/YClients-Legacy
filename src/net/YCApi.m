@@ -1033,6 +1033,207 @@ static NSMutableArray *YCBasePairs(YCRecord *record,
     });
 }
 
+#pragma mark Расписание
+
+/**
+ * Что накапливает разбор расписания одного сотрудника.
+ *
+ * Библиотека зовёт обратный вызов на каждый день диапазона, а нам нужен
+ * ровно один — тот, о котором спросили. Лишние дни приходить не должны,
+ * но проверка стоит дёшево, а сетка, нарисованная по чужому дню, стоит
+ * дорого.
+ */
+typedef struct {
+    __unsafe_unretained NSMutableArray *slots;
+    __unsafe_unretained NSString *wanted;
+    BOOL answered;
+} YCScheduleSink;
+
+/** «10:00» и «10:00:00» — в минуты от полуночи. */
+static NSInteger YCMinutesFromClock(const char *text) {
+    int hours = 0, minutes = 0;
+
+    if (text == NULL || sscanf(text, "%d:%d", &hours, &minutes) != 2) {
+        return -1;
+    }
+
+    if (hours < 0 || hours > 24 || minutes < 0 || minutes > 59) {
+        return -1;
+    }
+
+    return hours * 60 + minutes;
+}
+
+static int YCCollectSchedule(void *userdata, const char *date,
+                             int nslots, const CYCSlot *slots) {
+    @autoreleasepool {
+        YCScheduleSink *sink = (YCScheduleSink *)userdata;
+        NSString *day = YCStr(date);
+
+        // Дата приходит как «2026-09-08», иногда с временем — сравниваем
+        // по первым десяти знакам.
+        if ([day length] >= 10) {
+            day = [day substringToIndex:10];
+        }
+
+        if (![day isEqualToString:sink->wanted]) {
+            return 0;
+        }
+
+        sink->answered = YES;
+
+        for (int i = 0; i < nslots; i++) {
+            NSInteger from = YCMinutesFromClock(slots[i].from);
+            NSInteger to = YCMinutesFromClock(slots[i].to);
+
+            /**
+             * Полночь как конец интервала означает конец суток.
+             *
+             * Смена «с 20:00 до 00:00» приходит именно так, и взятое
+             * буквально это интервал отрицательной длины — колонка
+             * сотрудника оказалась бы целиком нерабочей.
+             */
+            if (to == 0 && from > 0) {
+                to = 24 * 60;
+            }
+
+            if (from < 0 || to <= from) {
+                continue;
+            }
+
+            [sink->slots addObject:[YCSlot slotFrom:from to:to]];
+        }
+    }
+
+    return 0;
+}
+
+- (void)loadScheduleForDay:(NSDate *)day
+                     staff:(NSArray *)staff
+                completion:(void (^)(NSDictionary *, NSString *))completion {
+    NSString *date = YCDayFromDate(day);
+    NSArray *members = [staff copy];
+
+    dispatch_async(_queue, ^{
+        @autoreleasepool {
+            NSString *token = nil;
+            int company = 0;
+
+            [self snapshotToken:&token company:&company];
+
+            if ([token length] == 0 || company == 0) {
+                YCMain(^{ completion(nil, @"Не выбран филиал"); });
+                return;
+            }
+
+            YCTransportResetLastMessage();
+
+            NSMutableDictionary *result = [NSMutableDictionary dictionary];
+
+            for (YCStaff *member in members) {
+                @autoreleasepool {
+                    NSMutableArray *slots = [NSMutableArray array];
+                    YCScheduleSink sink;
+
+                    sink.slots = slots;
+                    sink.wanted = date;
+                    sink.answered = NO;
+
+                    cyclients_schedule([token UTF8String], company,
+                                       (int)member.staffId,
+                                       [date UTF8String], [date UTF8String],
+                                       &sink, YCCollectSchedule);
+
+                    // Сервер промолчал — значит про этот день мы ничего
+                    // не знаем, и записывать «выходной» нельзя.
+                    if (!sink.answered) {
+                        continue;
+                    }
+
+                    [slots sortUsingComparator:^NSComparisonResult(YCSlot *a, YCSlot *b) {
+                        if (a.from < b.from) return NSOrderedAscending;
+                        if (a.from > b.from) return NSOrderedDescending;
+                        return NSOrderedSame;
+                    }];
+
+                    YCScheduleDay *entry = [[YCScheduleDay alloc] init];
+
+                    entry.staffId = member.staffId;
+                    entry.date = date;
+                    entry.slots = slots;
+
+                    [result setObject:entry forKey:@(member.staffId)];
+                }
+            }
+
+            NSLog(@"[YClients/API] Расписание на %@: сотрудников %lu из %lu",
+                  date, (unsigned long)[result count], (unsigned long)[members count]);
+
+            YCMain(^{ completion(result, nil); });
+        }
+    });
+}
+
+- (void)setSchedule:(NSArray *)slots
+           forStaff:(NSInteger)staffId
+              onDay:(NSDate *)day
+         completion:(void (^)(BOOL, NSString *))completion {
+    NSString *date = YCDayFromDate(day);
+    NSArray *safeSlots = [slots copy] ?: @[];
+
+    dispatch_async(_queue, ^{
+        @autoreleasepool {
+            NSString *token = nil;
+            int company = 0;
+
+            [self snapshotToken:&token company:&company];
+
+            if ([token length] == 0 || company == 0) {
+                YCMain(^{ completion(NO, @"Не выбран филиал"); });
+                return;
+            }
+
+            YCTransportResetLastMessage();
+
+            NSUInteger count = MIN([safeSlots count], (NSUInteger)CYC_MAX_SLOTS);
+            CYCSlot *raw = calloc(count > 0 ? count : 1, sizeof(CYCSlot));
+
+            if (raw == NULL) {
+                YCMain(^{ completion(NO, @"Не хватило памяти"); });
+                return;
+            }
+
+            for (NSUInteger i = 0; i < count; i++) {
+                YCSlot *slot = [safeSlots objectAtIndex:i];
+
+                strncpy(raw[i].from, [[slot fromText] UTF8String], sizeof(raw[i].from) - 1);
+                strncpy(raw[i].to, [[slot toText] UTF8String], sizeof(raw[i].to) - 1);
+            }
+
+            int rc = cyclients_schedule_set([token UTF8String], company,
+                                            (int)staffId, [date UTF8String],
+                                            (int)count, raw);
+
+            free(raw);
+
+            if (rc == 0) {
+                NSLog(@"[YClients/API] Расписание сотрудника %ld на %@ записано, интервалов %lu",
+                      (long)staffId, date, (unsigned long)count);
+
+                YCMain(^{ completion(YES, nil); });
+                return;
+            }
+
+            NSString *error = [self failureWithFallback:
+                @"Расписание не сохранилось."];
+
+            NSLog(@"[YClients/API] Расписание не записано: %@", error);
+
+            YCMain(^{ completion(NO, error); });
+        }
+    });
+}
+
 #pragma mark Клиенты
 
 /**

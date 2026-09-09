@@ -56,7 +56,7 @@ endif
 # подробности там же, в шапке файла. Из-за этого libcurl приложению не нужен
 # вовсе, а вместе с ним не нужна и его сборка под armv7/arm64.
 CYC_SOURCES := cJSON.c structs.c companies.c categories.c services.c \
-               users.c clients.c records.c staff.c stb_ds.c \
+               users.c clients.c records.c staff.c schedule.c stb_ds.c \
                custom_fields.c auth.c
 
 YClients_FILES  = $(shell find src -name '*.m')

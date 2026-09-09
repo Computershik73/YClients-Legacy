@@ -198,6 +198,16 @@
         label.font = [YCTheme headerFont];
         label.textColor = [YCTheme text];
         label.textAlignment = NSTextAlignmentCenter;
+
+        // Нажатие по всей клетке столбца, а не только по буквам: попасть
+        // пальцем в подпись высотой в восемнадцать точек трудно.
+        label.userInteractionEnabled = YES;
+
+        UITapGestureRecognizer *tap =
+            [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                     action:@selector(labelTapped:)];
+
+        [label addGestureRecognizer:tap];
         label.lineBreakMode = NSLineBreakByTruncatingTail;
         label.text = member.name;
 
@@ -215,6 +225,16 @@
     [self setNeedsDisplay];
 }
 
+- (void)labelTapped:(UITapGestureRecognizer *)tap {
+    NSUInteger index = [_labels indexOfObject:tap.view];
+
+    if (index == NSNotFound || index >= [self.staff count]) {
+        return;
+    }
+
+    [self.delegate headerView:self didTapStaff:[self.staff objectAtIndex:index]];
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
 
@@ -222,10 +242,11 @@
         CGFloat x = i * self.columnWidth;
 
         [[_avatars objectAtIndex:i] setFrame:
-            CGRectMake(x + (self.columnWidth - [YCTheme avatarSize]) / 2, 10, [YCTheme avatarSize], [YCTheme avatarSize])];
+            CGRectMake(x + (self.columnWidth - [YCTheme avatarSize]) / 2, 4,
+                       [YCTheme avatarSize], [YCTheme avatarSize])];
 
         [[_labels objectAtIndex:i] setFrame:
-            CGRectMake(x + 4, 12 + [YCTheme avatarSize] + 4, self.columnWidth - 8, 18)];
+            CGRectMake(x + 4, 6 + [YCTheme avatarSize], self.columnWidth - 8, 24)];
     }
 }
 

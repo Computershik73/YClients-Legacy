@@ -65,6 +65,37 @@ extern NSString *const YCShouldChooseCompanyNotification;
 - (void)loadServicesForStaff:(NSInteger)staffId
                   completion:(void (^)(NSArray *services, NSString *error))completion;
 
+#pragma mark Расписание
+
+/**
+ * Приёмные часы всех сотрудников на один день.
+ *
+ * Ключи словаря — номера сотрудников в NSNumber, значения — YCScheduleDay.
+ * Сотрудник, которого в словаре нет, ответа от сервера не получил;
+ * сотрудник с пустым списком интервалов — не работает. Различать это
+ * важно: в первом случае колонку прячут по ошибке, во втором — по делу.
+ *
+ * Сервер отвечает на одного сотрудника за запрос, поэтому запросов
+ * ровно столько, сколько сотрудников. Они идут по очереди в фоновой
+ * очереди, и результат приходит один раз, когда собраны все: показывать
+ * сетку, у которой колонки появляются по одной, хуже, чем показать её
+ * на полсекунды позже.
+ */
+- (void)loadScheduleForDay:(NSDate *)day
+                     staff:(NSArray *)staff
+                completion:(void (^)(NSDictionary *schedule, NSString *error))completion;
+
+/**
+ * Заменяет расписание сотрудника на день целиком.
+ *
+ * Именно заменяет: то, что стояло в этот день, пропадает. Пустой массив
+ * интервалов — это способ сделать день выходным, а не ошибка вызова.
+ */
+- (void)setSchedule:(NSArray *)slots
+           forStaff:(NSInteger)staffId
+              onDay:(NSDate *)day
+         completion:(void (^)(BOOL ok, NSString *error))completion;
+
 #pragma mark Клиенты
 
 /**

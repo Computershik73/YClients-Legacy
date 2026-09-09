@@ -11,6 +11,8 @@
 #import "YCRecordDetailController.h"
 #import "YCRecordFormController.h"
 #import "YCSheet.h"
+#import "YCDrawerController.h"
+#import "YCScheduleController.h"
 #import "YCTheme.h"
 #import "YCTime.h"
 #import "YCWeekStrip.h"
@@ -55,6 +57,7 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
 
 @interface YCDayController () <YCDayGridDelegate, UIScrollViewDelegate,
                                YCRecordFormDelegate, YCWeekStripDelegate,
+                               YCHeaderViewDelegate, YCScheduleDelegate,
                                UITableViewDataSource, UITableViewDelegate>
 @end
 
@@ -82,6 +85,19 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
     NSInteger _loading;
     NSInteger _generation;
     NSInteger _slide;           // сторона, с которой въедет новый день
+
+    /**
+     * Расписание на показанный день: номер сотрудника → YCScheduleDay.
+     *
+     * Пусто, пока сервер не ответил. Отсутствие сотрудника в словаре
+     * и пустой список его интервалов — разные вещи: первое значит
+     * «не знаем», второе — «выходной», и прятать колонку можно только
+     * во втором случае.
+     */
+    NSDictionary *_schedule;
+
+    /** Показывать ли тех, у кого сегодня выходной. */
+    BOOL _showsIdleStaff;
 
     // Панель выбора времени: сотрудник и список слотов.
     YCStaff *_slotStaff;
@@ -200,7 +216,67 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
 
     self.navigationItem.titleView = bar;
 
+    /**
+     * Кнопка шторки слева — вместо панели вкладок.
+     *
+     * Панель вкладок занимала сорок девять точек внизу постоянно; здесь
+     * то же самое стоит одной кнопки в панели, которая и так есть.
+     */
+    UIButton *menu = [UIButton buttonWithType:UIButtonTypeCustom];
+
+    menu.frame = CGRectMake(0, 0, 34, 30);
+    [menu setImage:[YCIcons menu:22 color:[YCTheme text]] forState:UIControlStateNormal];
+    [menu addTarget:self action:@selector(openDrawer)
+   forControlEvents:UIControlEventTouchUpInside];
+
+    self.navigationItem.leftBarButtonItem =
+        [[UIBarButtonItem alloc] initWithCustomView:menu];
+
     [self updateTitle];
+}
+
+/**
+ * Ищет шторку среди тех, кто нас содержит.
+ *
+ * Через родителей, а не через ссылку: журнал живёт внутри контроллера
+ * навигации, который лежит внутри шторки, и держать на неё поле значило
+ * бы обязать всех, кто создаёт журнал, эту ссылку проставить — и забыть
+ * её ровно там, где журнал показывают из другого места.
+ */
+#pragma mark Расписание сотрудника
+
+/**
+ * Нажатие по имени в шапке открывает его приёмные часы на этот день.
+ *
+ * Здесь же, не выходя из журнала: чаще всего расписание вспоминают
+ * ровно в тот момент, когда в колонку не встаёт запись, — и уходить
+ * за этим в отдельный раздел значит потерять и день, и сотрудника,
+ * о которых шла речь.
+ */
+- (void)headerView:(YCHeaderView *)header didTapStaff:(YCStaff *)staff {
+    YCScheduleController *schedule =
+        [[YCScheduleController alloc] initWithStaff:staff day:self.day];
+
+    schedule.delegate = self;
+
+    [self.navigationController pushViewController:schedule animated:YES];
+}
+
+- (void)scheduleDidChange {
+    [self reloadAll];
+}
+
+- (void)openDrawer {
+    UIViewController *node = self;
+
+    while (node != nil) {
+        if ([node isKindOfClass:[YCDrawerController class]]) {
+            [(YCDrawerController *)node toggleDrawer];
+            return;
+        }
+
+        node = node.parentViewController;
+    }
 }
 
 - (void)updateTitle {
@@ -243,6 +319,7 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
     [_scroll addSubview:_ruler];
 
     _header = [[YCHeaderView alloc] initWithFrame:CGRectZero];
+    _header.delegate = self;
     [_scroll addSubview:_header];
 
     _corner = [[UIView alloc] initWithFrame:CGRectZero];
@@ -296,17 +373,48 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
 }
 
 /** Сотрудники, прошедшие фильтр «Все». */
+/**
+ * Кого показывать колонками.
+ *
+ * Двумя ситами. Первое — ручное: сотрудники, снятые в «Все». Второе —
+ * расписание: у кого сегодня выходной, того в сетке нет. Пустая колонка
+ * сотрудника, который сегодня не работает, не просто занимает место —
+ * она приглашает записать к нему клиента, а сервер такую запись
+ * отклонит, и понять почему будет неоткуда.
+ *
+ * Второе сито снимается переключателем: расписание бывает не выставлено
+ * вовсе, и тогда без него на экране не осталось бы ни одной колонки.
+ * Ровно поэтому оно и не применяется, пока сервер не ответил, и поэтому
+ * же сотрудник, про которого ответа не было, остаётся на месте.
+ */
 - (NSArray *)shownStaff {
-    if ([_hiddenStaff count] == 0) {
-        return _staff;
-    }
-
     NSMutableArray *shown = [NSMutableArray array];
 
     for (YCStaff *member in _staff) {
-        if (![_hiddenStaff containsObject:@(member.staffId)]) {
-            [shown addObject:member];
+        if ([_hiddenStaff containsObject:@(member.staffId)]) {
+            continue;
         }
+
+        if (!_showsIdleStaff && [_schedule count] > 0) {
+            YCScheduleDay *day = [_schedule objectForKey:@(member.staffId)];
+
+            if (day != nil && !day.isWorking) {
+                continue;
+            }
+        }
+
+        [shown addObject:member];
+    }
+
+    /**
+     * Если по расписанию не работает никто — показываем всех.
+     *
+     * Иначе экран оказывался бы пустым в самом обидном случае: график
+     * на неделю ещё не выставлен, а записывать надо. Пустая сетка тут
+     * читается как поломка, а не как «сегодня никто не работает».
+     */
+    if ([shown count] == 0) {
+        return _staff;
     }
 
     return shown;
@@ -427,9 +535,37 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
 
         [self applyStaff];
         [self applyRecords];
+
+        [self loadScheduleForGeneration:generation];
     }];
 
     [self reloadRecordsForGeneration:generation scrollAfterwards:YES];
+}
+
+/**
+ * Приёмные часы — отдельным запросом после сотрудников.
+ *
+ * Отдельным, потому что сервер отвечает на одного сотрудника за раз,
+ * и ждать всех, прежде чем показать хоть что-то, незачем: сетка
+ * рисуется сразу, а часы доезжают и перекрашивают её.
+ */
+- (void)loadScheduleForGeneration:(NSInteger)generation {
+    [[YCApi shared] loadScheduleForDay:self.day staff:_staff
+                            completion:^(NSDictionary *schedule, NSString *error) {
+        if (generation != self->_generation) {
+            return;
+        }
+
+        if (error != nil) {
+            // Молча: без расписания сетка работает, просто вся белая.
+            NSLog(@"[YClients/Календарь] Расписание не получено: %@", error);
+            return;
+        }
+
+        self->_schedule = schedule;
+
+        [self applyStaff];
+    }];
 }
 
 - (void)applyStaff {
@@ -437,6 +573,7 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
 
     _header.staff = shown;
     _grid.staff = shown;
+    _grid.schedule = _schedule;
 
     [self updateTitle];
     [self relayoutGrid];

@@ -97,6 +97,58 @@ NSString *YCJoinName(NSString *surname, NSString *name, NSString *patronymic);
 @end
 
 
+/**
+ * Приёмные часы сотрудника на один день.
+ *
+ * Интервалов может быть несколько, и это не прихоть разметки: перерыв
+ * в YClients не хранится отдельной сущностью, он и есть промежуток между
+ * двумя интервалами. День с десяти до семи с обедом в два — это
+ * 10:00–14:00 и 15:00–19:00, а не «день с перерывом».
+ *
+ * Пустой список интервалов означает выходной. Это ответ, а не отсутствие
+ * ответа, и путать одно с другим нельзя: колонка сотрудника, который
+ * сегодня не работает, приглашает записать к нему клиента, а сервер
+ * такую запись отклонит.
+ */
+@interface YCSlot : NSObject
+
+/** Начало и конец в минутах от полуночи. */
+@property (nonatomic, assign) NSInteger from;
+@property (nonatomic, assign) NSInteger to;
+
++ (id)slotFrom:(NSInteger)from to:(NSInteger)to;
+
+/** «10:00» — как показывают и как отправляют обратно. */
+- (NSString *)fromText;
+- (NSString *)toText;
+
+@end
+
+
+/** Расписание одного сотрудника на один день. */
+@interface YCScheduleDay : NSObject
+
+@property (nonatomic, assign) NSInteger staffId;
+
+/** Дата в виде «ГГГГ-ММ-ДД» — так её называет сервер. */
+@property (nonatomic, copy) NSString *date;
+
+/** Массив YCSlot по возрастанию времени. Пусто — выходной. */
+@property (nonatomic, copy) NSArray *slots;
+
+/** Работает ли сотрудник в этот день вообще. */
+@property (nonatomic, readonly) BOOL isWorking;
+
+/** Первое начало и последний конец, минуты. 0 и 0 у выходного. */
+@property (nonatomic, readonly) NSInteger earliest;
+@property (nonatomic, readonly) NSInteger latest;
+
+/** Попадает ли минута дня внутрь приёмных часов. */
+- (BOOL)coversMinute:(NSInteger)minute;
+
+@end
+
+
 /** Запись — прямоугольник в сетке дня. */
 @interface YCRecord : NSObject
 

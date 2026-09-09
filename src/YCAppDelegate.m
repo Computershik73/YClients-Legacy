@@ -7,6 +7,11 @@
 #import "YCLog.h"
 #import "YCLoginController.h"
 #import "YCExpiry.h"
+#import "YCDrawerController.h"
+#import "YCMonthController.h"
+#import "YCAppearanceController.h"
+#import "YCAboutController.h"
+#import "YCAlert.h"
 #import "YCTheme.h"
 
 /**
@@ -17,11 +22,11 @@
  * идёт только при выборе «как в системе» и только если тёмность правда
  * сменилась: событие приходит и по другим поводам.
  */
-@interface YCTabsController : UITabBarController
+@interface YCRootDrawer : YCDrawerController
 @property (nonatomic, assign) BOOL wasDark;
 @end
 
-@implementation YCTabsController
+@implementation YCRootDrawer
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
     [super traitCollectionDidChange:previous];
@@ -42,7 +47,7 @@
 @end
 
 
-@interface YCAppDelegate () <YCLoginControllerDelegate>
+@interface YCAppDelegate () <YCLoginControllerDelegate, YCDrawerDelegate>
 @end
 
 @implementation YCAppDelegate
@@ -109,7 +114,7 @@
     }
 
     if ([[YCApi shared] isAuthorized] && [[YCApi shared] companyId] != 0) {
-        [self showTabs];
+        [self showMain];
         return;
     }
 
@@ -124,39 +129,96 @@
  * которых в библиотеке нет. Вкладка, за которой пусто, хуже её отсутствия:
  * она обещает то, чего нет.
  */
-- (void)showTabs {
-    UIColor *ink = [YCTheme text];
+/**
+ * Главный экран: журнал за шторкой.
+ *
+ * Панели вкладок больше нет. Она стоила сорока девяти точек внизу
+ * на каждом экране ради трёх пунктов, а работа идёт с записями, и места
+ * не хватало именно им. Шторка занимает ноль, пока закрыта, и вмещает
+ * всё, что раньше пряталось во вкладке «Ещё» третьим уровнем.
+ */
+- (void)showMain {
+    YCDayController *journal = [[YCDayController alloc] init];
 
-    UINavigationController *journal = [[UINavigationController alloc]
-        initWithRootViewController:[[YCDayController alloc] init]];
-    [YCTheme decorateNavigationController:journal];
-    journal.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Журнал"
-                                                       image:[YCIcons calendar:26 color:ink]
-                                                         tag:0];
+    UINavigationController *navigation =
+        [[UINavigationController alloc] initWithRootViewController:journal];
 
-    UINavigationController *clients = [[UINavigationController alloc]
-        initWithRootViewController:[[YCClientsController alloc] init]];
-    [YCTheme decorateNavigationController:clients];
-    clients.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Клиенты"
-                                                       image:[YCIcons people:26 color:ink]
-                                                         tag:1];
+    [YCTheme decorateNavigationController:navigation];
 
-    UINavigationController *more = [[UINavigationController alloc]
-        initWithRootViewController:[[YCMoreController alloc] init]];
-    [YCTheme decorateNavigationController:more];
-    more.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Ещё"
-                                                    image:[YCIcons menu:26 color:ink]
-                                                      tag:2];
+    YCRootDrawer *drawer = [[YCRootDrawer alloc] initWithContentController:navigation];
 
-    YCTabsController *tabs = [[YCTabsController alloc] init];
+    drawer.drawerDelegate = self;
+    drawer.wasDark = [YCTheme isDark];
 
-    tabs.viewControllers = @[ journal, clients, more ];
-    tabs.wasDark = [YCTheme isDark];
-
-    [YCTheme decorateTabBar:tabs.tabBar];
-
-    self.window.rootViewController = tabs;
+    self.window.rootViewController = drawer;
     self.window.backgroundColor = [YCTheme background];
+}
+
+/**
+ * Пункт шторки выбран.
+ *
+ * «Журнал» ничего не делает нарочно: шторка уже закрылась, и журнал —
+ * это то, что под ней. Остальное кладётся поверх журнала, а не заменяет
+ * его: вернуться из клиентов в день, на котором остановились, надо
+ * одним нажатием «назад», а не выбором пункта заново.
+ */
+- (void)drawer:(YCDrawerController *)drawer didChooseItem:(YCDrawerItem)item {
+    UINavigationController *navigation =
+        (UINavigationController *)drawer.contentController;
+
+    if (![navigation isKindOfClass:[UINavigationController class]]) {
+        return;
+    }
+
+    switch (item) {
+        case YCDrawerItemJournal:
+            [navigation popToRootViewControllerAnimated:YES];
+            break;
+
+        case YCDrawerItemMonth: {
+            YCDayController *journal = [[navigation viewControllers] objectAtIndex:0];
+
+            YCMonthController *month =
+                [[YCMonthController alloc] initWithDay:journal.day
+                                              onChoose:^(NSDate *chosen) {
+                [journal goToDay:chosen];
+                [navigation popToRootViewControllerAnimated:YES];
+            }];
+
+            [navigation pushViewController:month animated:YES];
+            break;
+        }
+
+        case YCDrawerItemClients:
+            [navigation pushViewController:[[YCClientsController alloc] init] animated:YES];
+            break;
+
+        case YCDrawerItemAppearance:
+            [navigation pushViewController:[[YCAppearanceController alloc] init] animated:YES];
+            break;
+
+        case YCDrawerItemAbout:
+            [navigation pushViewController:[[YCAboutController alloc] init] animated:YES];
+            break;
+
+        case YCDrawerItemCompany:
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:YCShouldChooseCompanyNotification object:nil];
+            break;
+
+        case YCDrawerItemLogout:
+            YCAlertConfirm(navigation, @"Выйти из учётной записи?",
+                           @"Токен будет удалён с устройства. Записи это не затронет.",
+                           @"Выйти", YES, ^{
+                [[YCApi shared] logout];
+                [[NSNotificationCenter defaultCenter]
+                    postNotificationName:YCDidLogOutNotification object:nil];
+            });
+            break;
+
+        default:
+            break;
+    }
 }
 
 /**
@@ -168,18 +230,6 @@
  * действие, и делают его не посреди заполнения записи.
  */
 - (void)handleAppearanceChange {
-    UITabBarController *tabs = (UITabBarController *)self.window.rootViewController;
-
-    if ([tabs isKindOfClass:[UITabBarController class]]) {
-        NSUInteger selected = tabs.selectedIndex;
-
-        [self showTabs];
-
-        // Возвращаемся в «Ещё» — туда, где тему и выбирали.
-        [(UITabBarController *)self.window.rootViewController setSelectedIndex:selected];
-        return;
-    }
-
     [self showStartingScreen];
 }
 
@@ -218,7 +268,7 @@
 }
 
 - (void)loginControllerDidFinish:(id)controller {
-    [self showTabs];
+    [self showMain];
 }
 
 #pragma mark Возврат в приложение
@@ -232,17 +282,23 @@
 
     // Журнал перечитывается при возвращении: записи заводят и в вебе,
     // и день, показанный два часа назад, к возврату уже неверен.
-    UITabBarController *tabs = (UITabBarController *)self.window.rootViewController;
+    YCDrawerController *drawer = (YCDrawerController *)self.window.rootViewController;
 
-    if (![tabs isKindOfClass:[UITabBarController class]]) {
+    if (![drawer isKindOfClass:[YCDrawerController class]]) {
         return;
     }
 
-    UINavigationController *journal = [tabs.viewControllers objectAtIndex:0];
-    UIViewController *top = [journal topViewController];
+    UINavigationController *navigation =
+        (UINavigationController *)drawer.contentController;
 
-    if ([top isKindOfClass:[YCDayController class]]) {
-        [(YCDayController *)top reloadAll];
+    if (![navigation isKindOfClass:[UINavigationController class]]) {
+        return;
+    }
+
+    UIViewController *root = [[navigation viewControllers] objectAtIndex:0];
+
+    if ([root isKindOfClass:[YCDayController class]]) {
+        [(YCDayController *)root reloadAll];
     }
 }
 

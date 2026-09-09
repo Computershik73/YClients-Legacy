@@ -22,6 +22,14 @@
 @end
 
 
+@class YCHeaderView;
+@class YCStaff;
+
+@protocol YCHeaderViewDelegate <NSObject>
+/** Нажали на имя сотрудника в шапке. */
+- (void)headerView:(YCHeaderView *)header didTapStaff:(YCStaff *)staff;
+@end
+
 /** Имена сотрудников по горизонтали. */
 @interface YCHeaderView : UIView
 
@@ -29,5 +37,16 @@
 @property (nonatomic, copy) NSArray *staff;
 
 @property (nonatomic, assign) CGFloat columnWidth;
+
+/**
+ * Кому сообщать о нажатии по столбцу.
+ *
+ * Имя сотрудника — единственное место в сетке, которое относится к нему
+ * целиком, а не к отдельной записи. Расписание на день открывается
+ * отсюда: другого естественного места для него нет, а прятать его
+ * в шторку значило бы заставить сначала выбрать день, потом закрыть
+ * журнал и потом заново вспоминать, о ком речь.
+ */
+@property (nonatomic, weak) id<YCHeaderViewDelegate> delegate;
 
 @end

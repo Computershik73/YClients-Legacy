@@ -127,6 +127,11 @@ static const CGFloat YCAutoScrollMargin = 64.0;
     [self rebuild];
 }
 
+- (void)setSchedule:(NSDictionary *)schedule {
+    _schedule = [schedule copy];
+    [self setNeedsDisplay];
+}
+
 - (void)setRecords:(NSArray *)records {
     _records = [records copy];
     [self rebuild];
@@ -332,20 +337,7 @@ static const CGFloat YCAutoScrollMargin = 64.0;
     CGFloat hourHeight = [YCTheme hourHeight];
     CGFloat width = [self.staff count] * self.columnWidth;
 
-    // Нерабочее время серым: так видно, что сетка расширена под запись,
-    // а не что салон работает с семи утра.
-    CGContextSetFillColorWithColor(context, [YCTheme closedHours].CGColor);
-
-    if (_startHour < YCWorkStartHour) {
-        CGFloat until = (YCWorkStartHour - _startHour) * hourHeight;
-        CGContextFillRect(context, CGRectMake(0, 0, width, until));
-    }
-
-    if (_endHour > YCWorkEndHour) {
-        CGFloat from = (YCWorkEndHour - _startHour) * hourHeight;
-        CGContextFillRect(context, CGRectMake(0, from, width,
-                                              (_endHour - YCWorkEndHour) * hourHeight));
-    }
+    [self shadeClosedHoursInContext:context width:width hourHeight:hourHeight];
 
     CGContextSetLineWidth(context, 1.0 / [UIScreen mainScreen].scale);
 
@@ -386,6 +378,90 @@ static const CGFloat YCAutoScrollMargin = 64.0;
     [self engraveGridInContext:context width:width hourHeight:hourHeight];
 
     [self drawNowLineInContext:context width:width];
+}
+
+/**
+ * Серым — то время, когда сотрудник не принимает.
+ *
+ * По колонкам, а не полосой во всю ширину. Раньше серым закрашивалось
+ * всё до восьми утра и после восьми вечера — одинаково для всех, потому
+ * что других сведений и не было. Толку от этого немного: смены у мастеров
+ * разные, и белое поле в колонке ничего не обещало.
+ *
+ * Теперь белое в колонке значит «сюда можно записать», а серое — «нельзя»,
+ * и промежуток между интервалами — обеденный перерыв — виден так же ясно,
+ * как утро и вечер.
+ *
+ * Пока расписание не пришло, остаётся прежнее поведение: общие часы
+ * работы салона. Показывать всё белым было бы обещанием, которого никто
+ * не давал.
+ */
+- (void)shadeClosedHoursInContext:(CGContextRef)context
+                            width:(CGFloat)width
+                       hourHeight:(CGFloat)hourHeight {
+    CGContextSetFillColorWithColor(context, [YCTheme closedHours].CGColor);
+
+    if ([self.schedule count] == 0) {
+        if (_startHour < YCWorkStartHour) {
+            CGFloat until = (YCWorkStartHour - _startHour) * hourHeight;
+            CGContextFillRect(context, CGRectMake(0, 0, width, until));
+        }
+
+        if (_endHour > YCWorkEndHour) {
+            CGFloat from = (YCWorkEndHour - _startHour) * hourHeight;
+            CGContextFillRect(context, CGRectMake(0, from, width,
+                                                  (_endHour - YCWorkEndHour) * hourHeight));
+        }
+
+        return;
+    }
+
+    CGFloat minute = hourHeight / 60.0;
+
+    for (NSUInteger column = 0; column < [self.staff count]; column++) {
+        YCStaff *member = [self.staff objectAtIndex:column];
+        YCScheduleDay *day = [self.schedule objectForKey:@(member.staffId)];
+        CGFloat x = column * self.columnWidth;
+
+        /**
+         * Про кого сервер промолчал — того не закрашиваем вовсе.
+         *
+         * Серая колонка означает «не работает», и говорить это про
+         * сотрудника, о котором ничего не известно, нельзя: расписание
+         * могло просто не загрузиться.
+         */
+        if (day == nil) {
+            continue;
+        }
+
+        if (!day.isWorking) {
+            CGContextFillRect(context, CGRectMake(x, 0, self.columnWidth,
+                                                  (_endHour - _startHour) * hourHeight));
+            continue;
+        }
+
+        // Закрашивается всё, кроме интервалов: идём сверху вниз и
+        // заливаем промежутки между ними, включая утро и вечер.
+        CGFloat cursor = _startHour * 60.0;
+
+        for (YCSlot *slot in day.slots) {
+            if (slot.from > cursor) {
+                CGContextFillRect(context,
+                    CGRectMake(x, (cursor - _startHour * 60.0) * minute,
+                               self.columnWidth, (slot.from - cursor) * minute));
+            }
+
+            cursor = MAX(cursor, (CGFloat)slot.to);
+        }
+
+        CGFloat end = _endHour * 60.0;
+
+        if (cursor < end) {
+            CGContextFillRect(context,
+                CGRectMake(x, (cursor - _startHour * 60.0) * minute,
+                           self.columnWidth, (end - cursor) * minute));
+        }
+    }
 }
 
 /**

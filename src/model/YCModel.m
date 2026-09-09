@@ -18,6 +18,81 @@
 @end
 
 
+@implementation YCSlot
+
++ (id)slotFrom:(NSInteger)from to:(NSInteger)to {
+    YCSlot *slot = [[YCSlot alloc] init];
+
+    slot.from = from;
+    slot.to = to;
+
+    return slot;
+}
+
+/** Минуты от полуночи в «ЧЧ:ММ». */
+static NSString *YCClockFromMinutes(NSInteger minutes) {
+    return [NSString stringWithFormat:@"%02ld:%02ld",
+            (long)(minutes / 60), (long)(minutes % 60)];
+}
+
+- (NSString *)fromText { return YCClockFromMinutes(self.from); }
+- (NSString *)toText   { return YCClockFromMinutes(self.to); }
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"<YCSlot %@–%@>", [self fromText], [self toText]];
+}
+
+@end
+
+
+@implementation YCScheduleDay
+
+- (BOOL)isWorking {
+    return [self.slots count] > 0;
+}
+
+- (NSInteger)earliest {
+    NSInteger best = 0;
+
+    for (YCSlot *slot in self.slots) {
+        if (best == 0 || slot.from < best) {
+            best = slot.from;
+        }
+    }
+
+    return best;
+}
+
+- (NSInteger)latest {
+    NSInteger best = 0;
+
+    for (YCSlot *slot in self.slots) {
+        if (slot.to > best) {
+            best = slot.to;
+        }
+    }
+
+    return best;
+}
+
+- (BOOL)coversMinute:(NSInteger)minute {
+    for (YCSlot *slot in self.slots) {
+        if (minute >= slot.from && minute < slot.to) {
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"<YCScheduleDay %ld %@ %@>",
+            (long)self.staffId, self.date, self.slots];
+}
+
+@end
+
+
 @implementation YCClient
 
 - (NSString *)description {
