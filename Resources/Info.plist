@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>ru</string>
+	<!--
+	    Языки, на которых приложение умеет говорить.
+
+	    От списка зависит не только перевод, но и клавиатура. iOS 6 отдаёт
+	    приложению не все включённые в системе клавиатуры, а только те, чей
+	    язык оно объявило; не объявившему не достаётся ничего, кроме
+	    английской по умолчанию, и глобус на клавиатуре не рисуется вовсе —
+	    переключать не на что. Для приложения, где в каждую запись вводят
+	    ФИО кириллицей, это отказ по существу.
+
+	    Объявляется двумя способами сразу, и оба нужны: ключ здесь и папки
+	    ru.lproj / en.lproj в связке. На iOS 8 и новее этой выборки уже нет.
+	-->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ru</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>YClients</string>
+	<key>CFBundleExecutable</key>
+	<string>YClients</string>
+	<key>CFBundleIdentifier</key>
+	<string>ru.computershik.yclients</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>YClients</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>iPhoneOS</string>
+	</array>
+	<key>MinimumOSVersion</key>
+	<string>6.0</string>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
+	<!--
+	    Стилем строки состояния распоряжается приложение, а не контроллер.
+
+	    С iOS 7 по умолчанию наоборот: система спрашивает preferredStatusBarStyle
+	    у текущего контроллера, а setStatusBarStyle молча ничего не делает.
+	    На iOS 6 ключа не существует, он там просто не читается, а
+	    setStatusBarStyle работает и без него — путь получается один на весь
+	    поддерживаемый диапазон.
+	-->
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>UIPrerenderedIcon</key>
+	<true/>
+	<key>CFBundleIconFiles</key>
+	<array>
+		<string>Icon-57.png</string>
+		<string>Icon-72.png</string>
+		<string>Icon-76.png</string>
+		<string>Icon-114.png</string>
+		<string>Icon-120.png</string>
+		<string>Icon-144.png</string>
+		<string>Icon-152.png</string>
+		<string>Icon-180.png</string>
+	</array>
+	<!--
+	    Открывает Documents наружу — оттуда забирается журнал (Documents/
+	    yclients.log), когда надо понять, что случилось на устройстве.
+	-->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<!--
+	    Экраны запуска.
+
+	    Это не украшение: по наличию картинки нужного размера iOS решает,
+	    умеет ли приложение работать на этом экране. Без Default-568h@2x
+	    на iPhone 5 оно запускается в режиме 320x480 — с чёрными полосами
+	    сверху и снизу. На iPhone 4 полос не было просто потому, что там
+	    экран и есть 320x480.
+
+	    Файлы с классическими именами нужны для iOS 6, где этого списка
+	    ещё не понимают; список — для iOS 7 и новее.
+	-->
+	<!--
+	    Современные экраны: iPhone X и новее картинкой не объявить.
+	    Там нужен либо launch storyboard — он несовместим с iOS 6 и требует
+	    ibtool, которого в Theos под Linux нет, — либо этот ключ. Он появился
+	    в iOS 14 и задаётся прямо здесь, без единого файла.
+
+	    Пустой словарь означает «экран поддерживается, рисовать на нём
+	    ничего не надо».
+	-->
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UILaunchImages</key>
+	<array>
+		<dict>
+			<key>UILaunchImageName</key>
+			<string>Default</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>7.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+			<key>UILaunchImageSize</key>
+			<string>{320, 480}</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageName</key>
+			<string>Default-568h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>7.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+			<key>UILaunchImageSize</key>
+			<string>{320, 568}</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageName</key>
+			<string>Default-667h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+			<key>UILaunchImageSize</key>
+			<string>{375, 667}</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageName</key>
+			<string>Default-736h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+			<key>UILaunchImageSize</key>
+			<string>{414, 736}</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageName</key>
+			<string>Default-Portrait</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>7.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+			<key>UILaunchImageSize</key>
+			<string>{768, 1024}</string>
+		</dict>
+		<!--
+		    Планшет лёжа — отдельная картинка, и размер у неё всё равно
+		    записан «стоя»: UILaunchImageSize всегда портретный, положение
+		    задаёт UILaunchImageOrientation. Без этой записи iOS считает,
+		    что лёжа приложение работать не умеет, — а календарю с колонками
+		    по сотрудникам ширина нужна больше всего остального.
+		-->
+		<dict>
+			<key>UILaunchImageName</key>
+			<string>Default-Landscape</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>7.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Landscape</string>
+			<key>UILaunchImageSize</key>
+			<string>{768, 1024}</string>
+		</dict>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<!--
+	    Лёжа разрешено и на телефоне: в календаре с колонками по сотрудникам
+	    от ширины зависит, сколько мастеров видно разом, и поворот — самый
+	    дешёвый способ увидеть больше.
+	-->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!--
+	  App Transport Security.
+
+	  ATS появилась в iOS 9 и распространяется на приложения, собранные её
+	  SDK, — наш случай, SDK 9.3. Наружу приложение ходит только по HTTPS
+	  и только к api.yclients.com, так что общего разрешения здесь нет
+	  и не нужно: NSAllowsArbitraryLoads выключил бы заодно и проверку
+	  прямых IP-адресов, а нам нечего по ним открывать.
+
+	  Заявленный минимум TLS — 1.2, то есть ровно то, что отвечает сервер.
+	  Ключ читают только iOS 9 и новее; на iOS 6 его нет, и там протокол
+	  выбирает Secure Transport, который с 1.2 умеет сам.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>yclients.com</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.2</string>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

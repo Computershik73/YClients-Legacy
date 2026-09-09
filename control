@@ -1,0 +1,9 @@
+Package: ru.computershik.yclients
+Name: YClients
+Version: 1.0
+Architecture: iphoneos-arm
+Description: Журнал записей YClients для iOS 6 и новее
+Maintainer: computershik
+Author: computershik
+Section: Productivity
+Depends: firmware (>= 6.0)

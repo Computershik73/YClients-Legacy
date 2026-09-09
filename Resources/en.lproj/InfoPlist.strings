@@ -1,0 +1,5 @@
+/* Second language declared in Info.plist. The folder itself matters as
+   much as its contents: on iOS 6 the keyboard list an app is given comes
+   from the localizations present in the bundle. */
+"CFBundleDisplayName" = "YClients";
+"CFBundleName" = "YClients";
