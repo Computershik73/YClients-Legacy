@@ -201,6 +201,19 @@
             [navigation pushViewController:[[YCAboutController alloc] init] animated:YES];
             break;
 
+        case YCDrawerItemMore:
+            /**
+             * Экран «Ещё» уцелел от панели вкладок целиком.
+             *
+             * В нём остались профиль, состав филиала, список услуг
+             * и — в отладочной сборке — настройки прокси. Переносить их
+             * по одному в шторку было бы лишней работой ради худшего
+             * результата: в шторке они разбавили бы то, чем пользуются
+             * каждый день, а здесь лежат ровно там, где к ним привыкли.
+             */
+            [navigation pushViewController:[[YCMoreController alloc] init] animated:YES];
+            break;
+
         case YCDrawerItemCompany:
             [[NSNotificationCenter defaultCenter]
                 postNotificationName:YCShouldChooseCompanyNotification object:nil];

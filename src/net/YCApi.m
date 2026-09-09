@@ -239,6 +239,11 @@ static int YCCollectRecord(void *userdata, const CYCRecord *record) {
      */
     NSString *_token;
     NSString *_userName;
+
+    /** Запомненные сотрудники: список, время снимка и чей это филиал. */
+    NSArray *_cachedStaff;
+    NSDate *_cachedStaffAt;
+    int _cachedStaffCompany;
     NSInteger _companyId;
     NSString *_companyTitle;
 }
@@ -296,6 +301,10 @@ static int YCCollectRecord(void *userdata, const CYCRecord *record) {
 }
 
 - (void)logout {
+    // Кэш сотрудников привязан к филиалу и к учётной записи — при смене
+    // того или другого он больше ни о чём не говорит.
+    [self invalidateStaffCache];
+
     @synchronized (self) {
         _token = nil;
         _userName = nil;
@@ -315,6 +324,10 @@ static int YCCollectRecord(void *userdata, const CYCRecord *record) {
 }
 
 - (void)selectCompany:(YCCompany *)company {
+    // Кэш сотрудников привязан к филиалу и к учётной записи — при смене
+    // того или другого он больше ни о чём не говорит.
+    [self invalidateStaffCache];
+
     @synchronized (self) {
         _companyId = company.companyId;
         _companyTitle = company.title;
@@ -463,7 +476,39 @@ static void YCMain(dispatch_block_t block) {
     });
 }
 
+/**
+ * Сотрудники запоминаются на несколько минут.
+ *
+ * Их запрашивал каждый переход на другой день — а состав филиала от даты
+ * не зависит. В журнале одного сеанса это четырнадцать запросов из
+ * шестидесяти: четверть всего разговора с сервером уходила на то, что
+ * не менялось. На iPad 2 по сотовой связи каждый такой запрос — это
+ * ещё и полсекунды, в течение которых сетка пуста.
+ *
+ * Пять минут — срок, за который сотрудника успевают завести или уволить
+ * ровно настолько редко, чтобы этого не заметить, и достаточно короткий,
+ * чтобы не пришлось объяснять, почему новый мастер не появился.
+ * Перезапуск и смена филиала сбрасывают кэш в любом случае.
+ */
+static const NSTimeInterval YCStaffCacheLifetime = 300.0;
+
+- (void)invalidateStaffCache {
+    @synchronized (self) {
+        _cachedStaff = nil;
+    }
+}
+
 - (void)loadStaffWithCompletion:(void (^)(NSArray *, NSString *))completion {
+    @synchronized (self) {
+        if (_cachedStaff != nil && _cachedStaffCompany == self.companyId &&
+            [[NSDate date] timeIntervalSinceDate:_cachedStaffAt] < YCStaffCacheLifetime) {
+            NSArray *cached = _cachedStaff;
+
+            YCMain(^{ completion(cached, nil); });
+            return;
+        }
+    }
+
     dispatch_async(_queue, ^{
         @autoreleasepool {
             NSString *token = nil;
@@ -484,6 +529,14 @@ static void YCMain(dispatch_block_t block) {
                             (__bridge void *)found, YCCollectStaff);
 
             NSLog(@"[YClients/API] Сотрудников: %lu", (unsigned long)[found count]);
+
+            if ([found count] > 0) {
+                @synchronized (self) {
+                    self->_cachedStaff = found;
+                    self->_cachedStaffAt = [NSDate date];
+                    self->_cachedStaffCompany = company;
+                }
+            }
 
             if ([found count] == 0) {
                 NSString *error = [self failureWithFallback:

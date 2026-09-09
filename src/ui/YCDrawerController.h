@@ -8,6 +8,16 @@ typedef enum {
     YCDrawerItemAppearance,
     YCDrawerItemAbout,
     YCDrawerItemCompany,
+
+    /**
+     * Всё, что заходят посмотреть, а не сделать: профиль, состав филиала,
+     * список услуг, настройки прокси в отладочной сборке.
+     *
+     * Отдельным пунктом, а не россыпью в шторке: шторка — это переход
+     * туда, где работают, и разбавлять её справочниками значит удлинять
+     * список, по которому бегают глазами десять раз на дню.
+     */
+    YCDrawerItemMore,
     YCDrawerItemLogout,
     YCDrawerItemCount
 } YCDrawerItem;
