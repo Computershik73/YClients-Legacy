@@ -26,13 +26,25 @@ static NSMutableSet *YCSheetsAlive(void) {
     return alive;
 }
 
+UIView *YCOverlayHost(void) {
+    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+
+    if (window == nil) {
+        window = [[[UIApplication sharedApplication] windows] firstObject];
+    }
+
+    UIViewController *root = window.rootViewController;
+
+    return (root != nil && root.isViewLoaded) ? root.view : window;
+}
+
 @implementation YCSheet
 
 + (YCSheet *)presentWithTitle:(NSString *)title
                       content:(UIView *)content
                   buttonTitle:(NSString *)buttonTitle
                      onButton:(dispatch_block_t)onButton {
-    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+    UIView *window = YCOverlayHost();
 
     if (window == nil) {
         return nil;

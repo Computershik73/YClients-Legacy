@@ -1,5 +1,6 @@
 #import "YCPickerSheet.h"
 
+#import "YCSheet.h"
 #import "YCTheme.h"
 #import "YCTime.h"
 
@@ -121,7 +122,7 @@ static NSMutableSet *YCSheetsOnScreen(void) {
 #pragma mark Показ
 
 - (void)showWithTitle:(NSString *)title content:(UIView *)content {
-    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+    UIView *window = YCOverlayHost();
 
     if (window == nil) {
         return;
