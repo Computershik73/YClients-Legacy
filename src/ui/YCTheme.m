@@ -139,8 +139,19 @@ static UIColor *YCPick(int light, int dark) {
 + (UIColor *)darkPanel    { return YCPick(0x2A2A2C, 0x2A2A2E); }
 + (UIColor *)weekend      { return YCRGB(0xE85A32); }
 
+/**
+ * Нерабочее время — заметно темнее рабочего.
+ *
+ * Было #E9ECEF под 55% прозрачности поверх бумаги #F2F1ED: разница
+ * выходила в пять единиц на канал, то есть около двух процентов яркости.
+ * Закраска была, увидеть её было нельзя — а вопрос «когда у сотрудника
+ * приёмные часы» решается именно этим различием и ничем больше.
+ *
+ * Теперь цвет непрозрачный и отличается от бумаги на глаз. Смысл у него
+ * ровно один: светлое — сюда можно записать, серое — нельзя.
+ */
 + (UIColor *)closedHours {
-    return [YCPick(0xE9ECEF, 0x1A1A1E) colorWithAlphaComponent:0.55];
+    return YCPick(0xDCDEE3, 0x08080A);
 }
 
 static UIColor *YCColorFromHex(NSString *string) {

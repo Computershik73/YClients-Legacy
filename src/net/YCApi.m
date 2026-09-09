@@ -1219,6 +1219,35 @@ static int YCCollectSchedule(void *userdata, const char *date,
                 }
             }
 
+            /**
+             * В журнал — не только сколько, но и что именно.
+             *
+             * «Сотрудников 2 из 2» не отвечает на единственный вопрос,
+             * который задают, когда сетка выглядит не так: работает ли
+             * человек по мнению сервера и с какого по какое.
+             */
+            for (YCStaff *member in members) {
+                YCScheduleDay *entry = [result objectForKey:@(member.staffId)];
+
+                if (entry == nil) {
+                    NSLog(@"[YClients/Расписание] %@ (%ld): сервер не ответил",
+                          member.name, (long)member.staffId);
+                    continue;
+                }
+
+                NSMutableArray *shown = [NSMutableArray array];
+
+                for (YCSlot *slot in entry.slots) {
+                    [shown addObject:[NSString stringWithFormat:@"%@–%@",
+                                      [slot fromText], [slot toText]]];
+                }
+
+                NSLog(@"[YClients/Расписание] %@ (%ld) на %@: %@",
+                      member.name, (long)member.staffId, date,
+                      [shown count] > 0 ? [shown componentsJoinedByString:@", "]
+                                        : @"выходной");
+            }
+
             NSLog(@"[YClients/API] Расписание на %@: сотрудников %lu из %lu",
                   date, (unsigned long)[result count], (unsigned long)[members count]);
 
