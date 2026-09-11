@@ -7,11 +7,11 @@
 #import "YCDayChrome.h"
 #import "YCDayGridView.h"
 #import "YCIcons.h"
-#import "YCPickerSheet.h"
 #import "YCRecordDetailController.h"
 #import "YCRecordFormController.h"
 #import "YCSheet.h"
 #import "YCDrawerController.h"
+#import "YCMonthController.h"
 #import "YCScheduleController.h"
 #import "YCTheme.h"
 #import "YCTime.h"
@@ -698,14 +698,29 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
     [self goToDay:day];
 }
 
+/**
+ * Дата в панели открывает календарь на месяц, а не барабан.
+ *
+ * Барабан со списками чисел, месяцев и годов отвечает на вопрос «какое
+ * число», а спрашивают другое — «какой день». В барабане не видно ни дня
+ * недели, ни выходных, ни того, что послезавтра суббота; чтобы попасть
+ * на следующий четверг, приходится считать в уме и крутить три колеса
+ * по отдельности. В календаре это одно нажатие.
+ *
+ * Экран тот же, что открывается из шторки: другого календаря на месяц
+ * в приложении нет и заводить второй незачем.
+ */
 - (void)pickDay {
-    [YCPickerSheet presentWithTitle:@"Перейти к дате"
-                               date:self.day
-                               mode:UIDatePickerModeDate
-                     minuteInterval:0
-                           onChoose:^(NSDate *chosen) {
+    YCMonthController *month =
+        [[YCMonthController alloc] initWithDay:self.day onChoose:^(NSDate *chosen) {
         [self goToDay:chosen];
+
+        // Выбрали — возвращаемся в журнал: смотреть на календарь дальше
+        // незачем, вопрос закрыт.
+        [self.navigationController popViewControllerAnimated:YES];
     }];
+
+    [self.navigationController pushViewController:month animated:YES];
 }
 
 #pragma mark Фильтр сотрудников
