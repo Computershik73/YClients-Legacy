@@ -6,9 +6,22 @@
 #import "YCTheme.h"
 #import "YCTime.h"
 
-/** Высота цветной шапки со временем. */
-static const CGFloat YCRecordHeadHeight = 24.0;
+/**
+ * Высота цветной шапки со временем.
+ *
+ * Было 24 на всех устройствах. На четырёхдюймовом экране час занимает
+ * 56 точек, и шапка съедала почти половину того, что остаётся под текст:
+ * ниже помещались ровно две строки, и третья — комментарий — отрезалась.
+ * Двадцати точек подписи в десять пунктов хватает с запасом.
+ */
+static CGFloat YCRecordHeadHeight(void) {
+    return [YCTheme isCompact] ? 20.0 : 22.0;
+}
+
 static const CGFloat YCRecordPadding = 8.0;
+
+/** Отступ от шапки до первой строки. */
+static const CGFloat YCRecordTextGap = 2.0;
 
 @implementation YCRecordView {
     UIView *_head;
@@ -17,6 +30,16 @@ static const CGFloat YCRecordPadding = 8.0;
     UILabel *_title;
     UILabel *_detail;
     UILabel *_note;
+
+    /**
+     * Услуги и комментарий держатся строками, а не в подписях.
+     *
+     * Что из них показать, решается при разметке — там известна высота,
+     * а значит и сколько строк поместится. До разметки этого не знает
+     * никто: одна и та же запись в час и в три часа выглядит по-разному.
+     */
+    NSString *_services;
+    NSString *_note_text;
 }
 
 - (id)initWithFrame:(CGRect)frame {
@@ -100,10 +123,10 @@ static const CGFloat YCRecordPadding = 8.0;
                   YCClockFromDate(record.start), YCClockFromDate(record.end)];
 
     _detail.textColor = [ink colorWithAlphaComponent:0.8];
-    _detail.text = record.services;
+    _note.textColor = [ink colorWithAlphaComponent:0.9];
 
-    _note.textColor = [ink colorWithAlphaComponent:0.7];
-    _note.text = record.comment;
+    _services = [record.services copy];
+    _note_text = [record.comment copy];
 
     [self setNeedsLayout];
 }
@@ -137,36 +160,63 @@ static const CGFloat YCRecordPadding = 8.0;
      * полоса со временем, и имя в ней всё равно не прочесть. Шапка при
      * этом ужимается до высоты записи, чтобы тело не выглядывало.
      */
-    CGFloat head = MIN(YCRecordHeadHeight, height);
+    CGFloat head = MIN(YCRecordHeadHeight(), height);
 
     _head.frame = CGRectMake(0, 0, width, head);
     _time.frame = CGRectMake(YCRecordPadding, 0, width - 40, head);
     _clock.frame = CGRectMake(width - 24, (head - 16) / 2, 16, 16);
     _clock.hidden = (width < 70);
 
-    CGFloat titleTop = head + 4.0;
-    CGFloat line = [YCTheme recordTitleFont].lineHeight + 2.0;
-
-    _title.frame = CGRectMake(YCRecordPadding, titleTop, width - YCRecordPadding * 2, line);
-    _title.hidden = (height < head + line);
-
-    _detail.frame = CGRectMake(YCRecordPadding, titleTop + line,
-                               width - YCRecordPadding * 2, line);
-    _detail.hidden = (height < head + line * 2 + 4) || [_detail.text length] == 0;
+    CGFloat top = head + YCRecordTextGap;
+    CGFloat line = [YCTheme recordTitleFont].lineHeight + 1.0;
+    CGFloat inner = width - YCRecordPadding * 2;
 
     /**
-     * Комментарий занимает строку услуг, когда услуг нет.
+     * Сколько строк поместится — столько и показываем.
      *
-     * Запись без услуги — обычное дело: администратор пишет в комментарий
-     * имя с телефоном и уточняет остальное потом. Держать под пустую
-     * строку услуг место, а комментарий прятать ниже — потерять его
-     * на записях в полчаса, где третьей строки уже нет.
+     * Раньше каждая строка сама решала, влезла ли она, и решала по своей
+     * мерке. Выходило, что запись на час показывала имя и услуги,
+     * а комментарий пропадал — при том что именно в нём чаще всего
+     * и лежит то, ради чего запись открывают: «имплант 2 шт», «звонить
+     * за час», имя с телефоном, если клиента не заводили в базу.
      */
-    CGFloat noteTop = _detail.hidden ? titleTop + line : titleTop + line * 2;
+    NSInteger fits = (NSInteger)floor((height - top) / line);
 
-    _note.frame = CGRectMake(YCRecordPadding, noteTop,
-                             width - YCRecordPadding * 2, line);
-    _note.hidden = (height < noteTop + line) || [_note.text length] == 0;
+    NSString *second = nil;
+    NSString *third = nil;
+
+    if (fits >= 3) {
+        second = _services;
+        third = _note_text;
+    } else if (fits == 2) {
+        /**
+         * Места на одну строку — она достаётся комментарию.
+         *
+         * Услуга в записи чаще всего одна и та же и предсказуема по
+         * сотруднику; комментарий писали руками именно для этого визита.
+         * Если комментария нет, строка достаётся услугам — пустой её
+         * оставлять незачем.
+         */
+        second = [_note_text length] > 0 ? _note_text : _services;
+    }
+
+    // Комментарий на второй строке рисуется тем же полужирным, что и на
+    // третьей: иначе одна и та же запись меняла бы начертание от высоты.
+    BOOL secondIsNote = (second != nil && second == _note_text);
+
+    _detail.font = secondIsNote ? [YCTheme recordDetailFont]
+                                : [YCTheme recordTitleFont];
+
+    _title.frame = CGRectMake(YCRecordPadding, top, inner, line);
+    _title.hidden = (fits < 1);
+
+    _detail.text = second;
+    _detail.frame = CGRectMake(YCRecordPadding, top + line, inner, line);
+    _detail.hidden = (fits < 2) || [second length] == 0;
+
+    _note.text = third;
+    _note.frame = CGRectMake(YCRecordPadding, top + line * 2, inner, line);
+    _note.hidden = (fits < 3) || [third length] == 0;
 }
 
 @end
