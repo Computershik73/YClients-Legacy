@@ -228,12 +228,10 @@ static const CGFloat YCDrawerWidth = 264.0;
 - (NSString *)titleForItem:(YCDrawerItem)item {
     switch (item) {
         case YCDrawerItemJournal:    return @"Журнал";
-        case YCDrawerItemMonth:      return @"Календарь на месяц";
         case YCDrawerItemClients:    return @"Клиенты";
         case YCDrawerItemAppearance: return @"Оформление";
         case YCDrawerItemAbout:      return @"О программе";
         case YCDrawerItemCompany:    return @"Сменить филиал";
-        case YCDrawerItemMore:       return @"Ещё";
         case YCDrawerItemLogout:     return @"Выйти";
         default:                     return @"";
     }
@@ -242,12 +240,10 @@ static const CGFloat YCDrawerWidth = 264.0;
 - (UIImage *)iconForItem:(YCDrawerItem)item color:(UIColor *)color {
     switch (item) {
         case YCDrawerItemJournal:    return [YCIcons calendar:24 color:color];
-        case YCDrawerItemMonth:      return [YCIcons calendar:24 color:color];
         case YCDrawerItemClients:    return [YCIcons people:24 color:color];
         case YCDrawerItemAppearance: return [YCIcons clock:24 color:color];
         case YCDrawerItemAbout:      return [YCIcons comment:24 color:color];
         case YCDrawerItemCompany:    return [YCIcons menu:24 color:color];
-        case YCDrawerItemMore:       return [YCIcons person:24 color:color];
         case YCDrawerItemLogout:     return [YCIcons close:24 color:color];
         default:                     return nil;
     }

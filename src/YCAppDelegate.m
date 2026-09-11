@@ -175,20 +175,6 @@
             [navigation popToRootViewControllerAnimated:YES];
             break;
 
-        case YCDrawerItemMonth: {
-            YCDayController *journal = [[navigation viewControllers] objectAtIndex:0];
-
-            YCMonthController *month =
-                [[YCMonthController alloc] initWithDay:journal.day
-                                              onChoose:^(NSDate *chosen) {
-                [journal goToDay:chosen];
-                [navigation popToRootViewControllerAnimated:YES];
-            }];
-
-            [navigation pushViewController:month animated:YES];
-            break;
-        }
-
         case YCDrawerItemClients:
             [navigation pushViewController:[[YCClientsController alloc] init] animated:YES];
             break;
@@ -199,19 +185,6 @@
 
         case YCDrawerItemAbout:
             [navigation pushViewController:[[YCAboutController alloc] init] animated:YES];
-            break;
-
-        case YCDrawerItemMore:
-            /**
-             * Экран «Ещё» уцелел от панели вкладок целиком.
-             *
-             * В нём остались профиль, состав филиала, список услуг
-             * и — в отладочной сборке — настройки прокси. Переносить их
-             * по одному в шторку было бы лишней работой ради худшего
-             * результата: в шторке они разбавили бы то, чем пользуются
-             * каждый день, а здесь лежат ровно там, где к ним привыкли.
-             */
-            [navigation pushViewController:[[YCMoreController alloc] init] animated:YES];
             break;
 
         case YCDrawerItemCompany:
