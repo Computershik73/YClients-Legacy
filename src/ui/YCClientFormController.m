@@ -325,11 +325,17 @@
     YCClientPickerController *picker =
         [[YCClientPickerController alloc] initWithQuery:[self query]
                                                onChoose:^(YCClient *client) {
+        /**
+         * nil означает «без клиента» — первую строку списка.
+         *
+         * Поля очищаются, и дальше всё идёт обычным путём: пустые имя
+         * и телефон и есть способ сказать серверу, что клиента нет.
+         */
         NSString *shown = [client.fullName length] > 0 ? client.fullName : client.name;
 
-        self->_name.text = shown ?: @"";
-        self->_phone.text = client.phone ?: @"";
-        self->_email.text = client.email ?: @"";
+        self->_name.text = client != nil ? (shown ?: @"") : @"";
+        self->_phone.text = client != nil ? (client.phone ?: @"") : @"";
+        self->_email.text = client != nil ? (client.email ?: @"") : @"";
 
         /**
          * Подсказки убираются: вопрос уже решён.

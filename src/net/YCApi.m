@@ -1012,6 +1012,7 @@ static NSMutableArray *YCBasePairs(YCRecord *record,
              comment:(NSString *)comment
           serviceIds:(NSArray *)serviceIds
                color:(NSString *)color
+        detachClient:(BOOL)detachClient
           completion:(void (^)(BOOL, NSString *))completion {
     /**
      * Клиент пустым не отправляется.
@@ -1020,7 +1021,16 @@ static NSMutableArray *YCBasePairs(YCRecord *record,
      * очищенное на экране правки, стёрло бы имя постоянного клиента
      * в базе салона. Пустой клиент означает «оставить прежнего».
      */
-    NSString *client = YCClientJSON(name, YCDigits(phone), email);
+    /**
+     * Пустой объект вместо nil, когда клиента сняли нарочно.
+     *
+     * nil в YCBasePairs означает «возьми клиента из самой записи» —
+     * защита от случайно очищенного поля. Здесь очистка не случайна,
+     * и подставлять прежнего нельзя: «{}» пройдёт проверку сервера
+     * на присутствие ключа и будет значить ровно то, что есть.
+     */
+    NSString *client = detachClient ? @"{}"
+                                    : YCClientJSON(name, YCDigits(phone), email);
 
     NSMutableArray *pairs = YCBasePairs(record, start, staffId, length, comment ?: @"",
                                         serviceIds, client, record.attendance);

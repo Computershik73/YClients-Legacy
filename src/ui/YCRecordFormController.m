@@ -707,9 +707,20 @@ typedef enum {
     NSArray *serviceIds = (!_serviceChanged && [_record.serviceIds count] > 0)
         ? _record.serviceIds : @[ @(_serviceId) ];
 
+    /**
+     * Клиента сняли — значит сняли, а не «не трогали».
+     *
+     * У записи был клиент, а в форме его больше нет: чтобы так вышло,
+     * надо было либо очистить поля руками, либо выбрать «Без клиента»
+     * в списке. И то и другое — действие, а не оплошность, и подставлять
+     * прежнего в этом случае значит отменять чужое решение.
+     */
+    BOOL detach = ([_name length] == 0 && [_phone length] == 0) &&
+                  ([_record.clientName length] > 0 || [_record.clientPhone length] > 0);
+
     [[YCApi shared] updateRecord:_record name:_name phone:_phone email:_email
                            staff:_staffId start:_start length:_length comment:comment
-                      serviceIds:serviceIds color:_color
+                      serviceIds:serviceIds color:_color detachClient:detach
                       completion:^(BOOL ok, NSString *error) {
         [self setBusy:NO];
 

@@ -116,7 +116,10 @@
         }
 
         self->_clients = clients;
-        self->_empty.hidden = ([clients count] > 0);
+
+        // «Никого не нашлось» не показывается: строка «Без клиента»
+        // в списке есть всегда, и пустым он не бывает.
+        self->_empty.hidden = YES;
 
         [self.tableView reloadData];
     }];
@@ -148,8 +151,21 @@
 
 #pragma mark Список
 
+/**
+ * Первая строка — «Без клиента», дальше найденные.
+ *
+ * Отказ от выбора это тоже выбор, и он должен лежать там же, где
+ * остальные: искать его в другом месте — значит не найти. Строка стоит
+ * первой, потому что решение «клиента нет» принимают сразу, а не после
+ * того, как пролистали всю базу.
+ */
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return [_clients count];
+    return [_clients count] + 1;
+}
+
+/** Строка «Без клиента» — нулевая; остальные сдвинуты на единицу. */
+- (YCClient *)clientAt:(NSIndexPath *)path {
+    return path.row == 0 ? nil : [_clients objectAtIndex:path.row - 1];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView
@@ -158,10 +174,25 @@
         [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
                                reuseIdentifier:nil];
 
-    YCClient *client = [_clients objectAtIndex:path.row];
-    NSString *shown = [client.fullName length] > 0 ? client.fullName : client.name;
+    YCClient *client = [self clientAt:path];
 
     [YCTheme decorateCell:cell];
+
+    if (client == nil) {
+        cell.textLabel.text = @"Без клиента";
+        cell.textLabel.font = [YCTheme rowFont];
+        cell.textLabel.textColor = [YCTheme text];
+        cell.detailTextLabel.text = @"время займёт запись без имени";
+        cell.detailTextLabel.font = [YCTheme captionFont];
+        cell.detailTextLabel.textColor = [YCTheme mutedText];
+        cell.imageView.image = [YCIcons close:[YCTheme avatarSize]
+                                        color:[YCTheme mutedText]];
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+
+        return cell;
+    }
+
+    NSString *shown = [client.fullName length] > 0 ? client.fullName : client.name;
 
     cell.imageView.image = [YCIcons avatar:[YCTheme avatarSize]];
     cell.textLabel.text = [shown length] > 0 ? shown : @"Без имени";
@@ -178,7 +209,7 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
     [tableView deselectRowAtIndexPath:path animated:YES];
 
-    YCClient *client = [_clients objectAtIndex:path.row];
+    YCClient *client = [self clientAt:path];
 
     if (_onChoose != NULL) {
         _onChoose(client);

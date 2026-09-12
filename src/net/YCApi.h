@@ -158,8 +158,16 @@ extern NSString *const YCShouldChooseCompanyNotification;
  * Правка записи. PUT у сервера — замена целиком, поэтому уходит всё.
  *
  * Пустые имя и телефон означают «оставить прежнего клиента», а не
- * «стереть». serviceIds — весь список услуг записи; если выбор не меняли,
- * сюда идут прежние. color — hex или пустая строка («без цвета»).
+ * «стереть»: поле, случайно очищенное на экране правки, иначе стёрло бы
+ * имя постоянного клиента в базе салона.
+ *
+ * detachClient — тот случай, когда стереть хотели: в списке выбрали
+ * «Без клиента». Тогда прежний не подставляется и уходит пустой объект.
+ * Без этого флага снять клиента с записи было нельзя вовсе — очистка
+ * полей молча возвращала того же человека.
+ *
+ * serviceIds — весь список услуг записи; если выбор не меняли, сюда идут
+ * прежние. color — hex или пустая строка («без цвета»).
  */
 - (void)updateRecord:(YCRecord *)record
                 name:(NSString *)name
@@ -171,6 +179,7 @@ extern NSString *const YCShouldChooseCompanyNotification;
              comment:(NSString *)comment
           serviceIds:(NSArray *)serviceIds
                color:(NSString *)color
+       detachClient:(BOOL)detachClient
           completion:(void (^)(BOOL ok, NSString *error))completion;
 
 /**
