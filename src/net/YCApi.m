@@ -919,6 +919,22 @@ static NSMutableArray *YCBasePairs(YCRecord *record,
                        force:(BOOL)force
                   completion:(void (^)(NSInteger, NSString *))completion {
     NSString *when = YCAPIFromDate(start);
+
+    /**
+     * Имя и телефон уходят строками, пустыми в том числе, но не nil.
+     *
+     * Библиотека проверяет их через assert, и пустая строка эту проверку
+     * проходит: пустые имя **и** телефон означают «клиента нет вовсе» —
+     * объект client тогда просто не кладётся в запрос, и сервер заводит
+     * запись без клиента. Именно так и работает «Продолжить без клиента».
+     *
+     * А вот nil проверку не проходит: [nil UTF8String] возвращает NULL,
+     * и приложение обрывается внутри assert, без сообщения и без следа
+     * в журнале падений. Сейчас nil сюда не приходит ни от кого, но
+     * держаться это может только на внимательности всех вызывающих —
+     * а здесь достаточно одной строки.
+     */
+    NSString *safeName = name ?: @"";
     NSString *digits = YCDigits(phone);
     NSString *safeComment = comment ?: @"";
     NSString *services = YCServicesJSON(serviceId > 0 ? @[ @(serviceId) ] : nil);
@@ -953,7 +969,7 @@ static NSMutableArray *YCBasePairs(YCRecord *record,
             CYCLIENTS_ID recordId = force
                 ? cyclients_record_new(
                     [token UTF8String], company, (int)staffId,
-                    [name UTF8String], [digits UTF8String],
+                    [safeName UTF8String], [digits UTF8String],
                     [when UTF8String], (int)length,
                     4,
                     "comment", [safeComment UTF8String],
@@ -962,7 +978,7 @@ static NSMutableArray *YCBasePairs(YCRecord *record,
                     "save_if_busy", "1")
                 : cyclients_record_new(
                     [token UTF8String], company, (int)staffId,
-                    [name UTF8String], [digits UTF8String],
+                    [safeName UTF8String], [digits UTF8String],
                     [when UTF8String], (int)length,
                     3,
                     "comment", [safeComment UTF8String],
