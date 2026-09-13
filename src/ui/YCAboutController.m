@@ -13,15 +13,27 @@ typedef enum {
     YCAboutSectionApp = 0,
     YCAboutSectionLinks,
     YCAboutSectionProxy,
+
+    /**
+     * Раздела журнала нет там, где нет журнала.
+     *
+     * В готовой сборке вызовы записи выброшены на разборе — вместе с ними
+     * уходит и раздел, и его строки из двоичного файла. Прятать его
+     * во время работы было мало: пользователю приложения он не говорит
+     * ничего, а место занимает и наводит на мысль, что он что-то
+     * не так настроил.
+     */
+#ifndef YC_NO_LOG
     YCAboutSectionLog,
+#endif
     YCAboutSectionCount
 } YCAboutSection;
 
 /** Ссылки: заголовок, пояснение, адрес. */
 static NSArray *YCAboutLinks(void) {
     return @[
-        @[ @"Страница на 4PDA",
-           @"обсуждение и новые сборки",
+        @[ @"Профиль на 4PDA",
+           @"страница разработчика",
            @"https://4pda.to/forum/index.php?showuser=4458524" ],
 
         @[ @"Telegram-канал",
@@ -77,7 +89,9 @@ static NSArray *YCAboutLinks(void) {
     [sections addObject:[NSNumber numberWithInt:YCAboutSectionProxy]];
 #endif
 
+#ifndef YC_NO_LOG
     [sections addObject:[NSNumber numberWithInt:YCAboutSectionLog]];
+#endif
 
     _sections = sections;
 
@@ -114,18 +128,6 @@ static NSArray *YCAboutLinks(void) {
     return (YCAboutSection)[[_sections objectAtIndex:index] intValue];
 }
 
-/**
- * Ведётся ли журнал в этой сборке.
- *
- * `make package FINALPACKAGE=1` определяет YC_NO_LOG, и тогда вызовы NSLog
- * выброшены на разборе — журнала нет вовсе, ни файла, ни пути к нему.
- * Отличить такую сборку снаружи можно только по пустому пути, и здесь это
- * и делается: иначе экран показывал бы пустую строку там, где ждут путь,
- * и кнопку «стереть» для того, чего не существует.
- */
-- (BOOL)loggingEnabled {
-    return [YCLogPath() length] > 0;
-}
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch ([self sectionAt:section]) {
@@ -134,7 +136,9 @@ static NSArray *YCAboutLinks(void) {
 #ifdef YC_PROXY
         case YCAboutSectionProxy: return 1;
 #endif
-        case YCAboutSectionLog:   return [self loggingEnabled] ? 2 : 1;
+#ifndef YC_NO_LOG
+        case YCAboutSectionLog:   return 2;
+#endif
         default:                  return 0;
     }
 }
@@ -145,7 +149,9 @@ static NSArray *YCAboutLinks(void) {
 #ifdef YC_PROXY
         case YCAboutSectionProxy: return @"Отладка";
 #endif
+#ifndef YC_NO_LOG
         case YCAboutSectionLog:   return @"Журнал";
+#endif
         default:                  return nil;
     }
 }
@@ -153,21 +159,8 @@ static NSArray *YCAboutLinks(void) {
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     YCAboutSection which = [self sectionAt:section];
 
+#ifndef YC_NO_LOG
     if (which == YCAboutSectionLog) {
-        if (![self loggingEnabled]) {
-            /**
-             * Сказать об этом прямо важнее, чем кажется.
-             *
-             * Молчаливая сборка выглядит точно так же, как сборка со
-             * сломанным журналом: файла нет ни в том, ни в другом случае.
-             * Разница в том, что искать причину во втором случае негде,
-             * а в первом достаточно поставить обычную сборку.
-             */
-            return @"В этой сборке журнал отключён на этапе компиляции "
-                   @"(FINALPACKAGE=1) — файла не будет. Чтобы получить "
-                   @"журнал, поставьте обычную сборку: make package ipa";
-        }
-
         /**
          * Как забрать журнал — сказано здесь, а не в переписке.
          *
@@ -184,6 +177,8 @@ static NSArray *YCAboutLinks(void) {
                @"это общая папка пользователя, а не папка внутри связки. "
                @"Открывается любым файловым менеджером (Filza) или по SSH.";
     }
+
+#endif
 
     if (which == YCAboutSectionApp) {
         return @"Журнал записей YClients для iOS 6 и новее. "
@@ -225,9 +220,11 @@ static NSArray *YCAboutLinks(void) {
             break;
 #endif
 
+#ifndef YC_NO_LOG
         case YCAboutSectionLog:
             [self fillLogCell:cell row:path.row];
             break;
+#endif
 
         default:
             break;
@@ -306,15 +303,10 @@ static NSArray *YCAboutLinks(void) {
 
 #endif  /* YC_PROXY */
 
+#ifndef YC_NO_LOG
+
 - (void)fillLogCell:(UITableViewCell *)cell row:(NSInteger)row {
     if (row == 0) {
-        if (![self loggingEnabled]) {
-            cell.textLabel.text = @"Журнал";
-            cell.detailTextLabel.text = @"отключён";
-            cell.detailTextLabel.textColor = [YCTheme mutedText];
-            return;
-        }
-
         cell.textLabel.text = @"Файл";
 
         /**
@@ -336,6 +328,8 @@ static NSArray *YCAboutLinks(void) {
     cell.textLabel.textAlignment = NSTextAlignmentCenter;
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
 }
+
+#endif
 
 #pragma mark Нажатия
 
@@ -359,6 +353,7 @@ static NSArray *YCAboutLinks(void) {
         return;
     }
 
+#ifndef YC_NO_LOG
     if (which == YCAboutSectionLog && path.row == 1) {
         YCAlertConfirm(self, @"Стереть журнал?",
                        @"Файл будет удалён. Записи YClients это не затронет.",
@@ -368,6 +363,7 @@ static NSArray *YCAboutLinks(void) {
             NSLog(@"[YClients] Журнал стёрт из «О программе»");
         });
     }
+#endif
 }
 
 /**
