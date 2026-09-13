@@ -1,7 +1,6 @@
 #import "YCHttp.h"
 
 #import "YCProxy.h"
-#import "YCClock.h"
 #import "YCTls.h"
 
 static NSString *const YCHttpErrorDomain = @"ru.computershik.yclients.http";
@@ -549,14 +548,6 @@ static NSData *YCHttpReadChunked(YCTls *tls, NSMutableData *already, NSError **e
         [responseHeaders setObject:value forKey:name];
     }
 
-    /**
-     * Заголовок Date — единственные часы, которым мы верим.
-     *
-     * Ловится здесь, а не там, где нужен: сюда приходит каждый ответ,
-     * включая ответы с ошибками и переадресации. Даже отказ сервера
-     * сообщает верное время.
-     */
-    [YCClock noteServerDate:[responseHeaders objectForKey:@"date"]];
 
     // --- переадресация ---
 

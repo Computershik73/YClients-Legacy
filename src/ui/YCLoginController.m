@@ -4,7 +4,6 @@
 
 #import "YCAlert.h"
 #import "YCApi.h"
-#import "YCExpiry.h"
 #import "YCIcons.h"
 #import "YCProxy.h"
 #import "YCProxyController.h"
@@ -77,7 +76,6 @@ static UIView *YCMark(CGFloat size) {
     UIButton *_register;
     UIButton *_reset;
     UILabel *_footer;
-    UILabel *_expiry;
     UIButton *_proxy;
     UIActivityIndicatorView *_spinner;
     BOOL _busy;
@@ -137,20 +135,6 @@ static UIView *YCMark(CGFloat size) {
     _submit = [YCSheet yellowButtonWithTitle:@"Войти"];
     [_submit addTarget:self action:@selector(submit) forControlEvents:UIControlEventTouchUpInside];
     [_scroll addSubview:_submit];
-
-    /**
-     * Срок сборки — прямо под кнопкой входа, а не в «О программе».
-     *
-     * Сборка живёт неделю (см. YCExpiry), и знать об этом надо до того,
-     * как она перестанет работать, а не после. Строка стоит здесь с первого
-     * дня и меняет только цвет, когда срок выходит.
-     */
-    _expiry = [[UILabel alloc] initWithFrame:CGRectZero];
-    _expiry.numberOfLines = 0;
-    _expiry.font = [YCTheme captionFont];
-    _expiry.textAlignment = NSTextAlignmentCenter;
-    _expiry.backgroundColor = [UIColor clearColor];
-    [_scroll addSubview:_expiry];
 
     _question = [[UILabel alloc] initWithFrame:CGRectZero];
     _question.text = @"Нет аккаунта или забыли пароль?";
@@ -226,28 +210,6 @@ static UIView *YCMark(CGFloat size) {
                  forState:UIControlStateNormal];
 #endif
 
-    [self refreshExpiry];
-}
-
-/**
- * Обновляет строку срока и запирает вход, если он вышел.
- *
- * Зовётся не только при появлении экрана, но и после каждой попытки входа:
- * время приходит с ответом сервера, и сборка, просроченная неделю назад,
- * узнаёт об этом ровно в тот миг, когда впервые дозвонилась.
- */
-- (void)refreshExpiry {
-    NSString *notice = [YCExpiry notice];
-
-    _expiry.text = notice ?: @"";
-    _expiry.textColor = [YCExpiry isExpired] ? [YCTheme nowLine] : [YCTheme mutedText];
-
-    if ([YCExpiry isExpired]) {
-        _submit.enabled = NO;
-        _submit.alpha = 0.5;
-    }
-
-    [self.view setNeedsLayout];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -296,14 +258,6 @@ static UIView *YCMark(CGFloat size) {
     _loginField.frame = CGRectMake(inset, y, inner, row);      y += row + 12;
     _passwordField.frame = CGRectMake(inset, y, inner, row);   y += row + 32;
     _submit.frame = CGRectMake(inset, y, inner, row);          y += row + 16;
-
-    if ([_expiry.text length] > 0) {
-        CGFloat height = [_expiry sizeThatFits:CGSizeMake(inner, 200)].height;
-
-        _expiry.frame = CGRectMake(inset, y, inner, height);   y += height + 24;
-    } else {
-        _expiry.frame = CGRectZero;                            y += 24;
-    }
 
     _question.frame = CGRectMake(inset, y, inner, 24);         y += 40;
 
@@ -404,8 +358,8 @@ static UIView *YCMark(CGFloat size) {
         [_spinner stopAnimating];
     }
 
-    _submit.enabled = !busy && ![YCExpiry isExpired];
-    _submit.alpha = _submit.enabled ? 1.0 : 0.5;
+    _submit.enabled = !busy;
+    _submit.alpha = busy ? 0.5 : 1.0;
     _scroll.userInteractionEnabled = !busy;
 }
 
@@ -414,10 +368,6 @@ static UIView *YCMark(CGFloat size) {
         return;
     }
 
-    if ([YCExpiry isExpired]) {
-        YCAlertMessage(self, @"Срок сборки истёк", [YCExpiry notice]);
-        return;
-    }
 
     NSString *login = [_loginField.text stringByTrimmingCharactersInSet:
         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
@@ -435,20 +385,6 @@ static UIView *YCMark(CGFloat size) {
     [[YCApi shared] loginWithLogin:login password:password
                         completion:^(BOOL ok, NSString *error) {
         [self setBusy:NO];
-
-        /**
-         * Срок проверяется после запроса, а не до него.
-         *
-         * Настоящее время приходит заголовком Date в ответе сервера —
-         * в том числе в ответе с отказом. То есть первая же попытка входа
-         * и сообщает сборке, жива она ещё или нет.
-         */
-        [self refreshExpiry];
-
-        if ([YCExpiry isExpired]) {
-            YCAlertMessage(self, @"Срок сборки истёк", [YCExpiry notice]);
-            return;
-        }
 
         if (!ok) {
             YCAlertMessage(self, @"Не удалось войти", error);

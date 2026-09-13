@@ -6,7 +6,6 @@
 #import "YCIcons.h"
 #import "YCLog.h"
 #import "YCLoginController.h"
-#import "YCExpiry.h"
 #import "YCDrawerController.h"
 #import "YCMonthController.h"
 #import "YCAppearanceController.h"
@@ -99,20 +98,6 @@
  * токен виден по первому же запросу.
  */
 - (void)showStartingScreen {
-    /**
-     * Просроченная сборка не идёт дальше экрана входа.
-     *
-     * Ни токен, ни выбранный филиал при этом не трогаются: срок — повод
-     * не работать, а не повод стирать чужие настройки. Поставят свежую
-     * сборку — всё окажется на месте.
-     */
-    if ([YCExpiry isExpired]) {
-        NSLog(@"[YClients] Срок сборки истёк, работа прекращена");
-
-        [self showLoginStartingAtCompanies:NO];
-        return;
-    }
-
     if ([[YCApi shared] isAuthorized] && [[YCApi shared] companyId] != 0) {
         [self showMain];
         return;
@@ -260,12 +245,6 @@
 #pragma mark Возврат в приложение
 
 - (void)applicationWillEnterForeground:(UIApplication *)application {
-    // Срок мог истечь, пока приложение лежало свёрнутым.
-    if ([YCExpiry isExpired]) {
-        [self showStartingScreen];
-        return;
-    }
-
     // Журнал перечитывается при возвращении: записи заводят и в вебе,
     // и день, показанный два часа назад, к возврату уже неверен.
     YCDrawerController *drawer = (YCDrawerController *)self.window.rootViewController;

@@ -2,7 +2,6 @@
 
 #import "YCAlert.h"
 #import "YCApi.h"
-#import "YCExpiry.h"
 #import "YCLog.h"
 #import "YCProxy.h"
 #import "YCProxyController.h"
@@ -130,7 +129,7 @@ static NSArray *YCAboutLinks(void) {
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch ([self sectionAt:section]) {
-        case YCAboutSectionApp:   return 5;             // название, версия, срок, автор, TLS
+        case YCAboutSectionApp:   return 4;             // название, версия, автор, TLS
         case YCAboutSectionLinks: return [YCAboutLinks() count];
 #ifdef YC_PROXY
         case YCAboutSectionProxy: return 1;
@@ -249,35 +248,12 @@ static NSArray *YCAboutLinks(void) {
             cell.detailTextLabel.text = [self version];
             break;
 
-        case 2: {
-            /**
-             * Срок сборки — рядом с версией, где его и станут искать.
-             *
-             * На экране входа он тоже есть, но туда попадают один раз,
-             * а сюда заходят, когда что-то перестало работать.
-             */
-            cell.textLabel.text = @"Срок";
-
-            if (![YCExpiry isLimited]) {
-                cell.detailTextLabel.text = @"без ограничения";
-                break;
-            }
-
-            cell.detailTextLabel.text = [YCExpiry isExpired] ? @"истёк" : [YCExpiry notice];
-            cell.detailTextLabel.textColor = [YCExpiry isExpired] ? [YCTheme nowLine]
-                                                                  : [YCTheme mutedText];
-            cell.detailTextLabel.font = [UIFont systemFontOfSize:11.0];
-            cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
-            cell.detailTextLabel.minimumScaleFactor = 0.6;
-            break;
-        }
-
-        case 3:
+        case 2:
             cell.textLabel.text = @"Разработчик";
             cell.detailTextLabel.text = @"Computershik";
             break;
 
-        case 4:
+        case 3:
             /**
              * Строка про TLS здесь не для красоты.
              *
