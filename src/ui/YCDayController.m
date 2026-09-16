@@ -161,7 +161,7 @@ static const NSTimeInterval YCSlotStep = 5 * 60;
     [self relayoutGrid];
 }
 
-/** Сейчас — в настенном времени салона (см. YCTime.h). */
+/** Сейчас — в настенном времени филиала (см. YCTime.h). */
 - (NSDate *)wallClockNow {
     static NSDateFormatter *local;
     static dispatch_once_t once;

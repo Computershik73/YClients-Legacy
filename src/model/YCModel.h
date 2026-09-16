@@ -35,7 +35,7 @@
  * Длительность сеанса по умолчанию, секунды.
  *
  * Сервер держит её у сотрудника, и это разумное начальное значение для
- * новой записи: у мастера маникюра час, у администратора пятнадцать минут.
+ * новой записи: у врача час, у администратора пятнадцать минут.
  * Ноль означает «сервер не сказал» — тогда берётся общий час.
  */
 @property (nonatomic, assign) NSTimeInterval seanceLength;
@@ -155,7 +155,7 @@ NSString *YCJoinName(NSString *surname, NSString *name, NSString *patronymic);
 @property (nonatomic, assign) NSInteger recordId;
 @property (nonatomic, assign) NSInteger staffId;
 
-/** Начало записи в настенном времени салона — см. YCTime.h. */
+/** Начало записи в настенном времени филиала — см. YCTime.h. */
 @property (nonatomic, strong) NSDate *start;
 
 /** Длительность в секундах. */
